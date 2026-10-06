@@ -1,10 +1,12 @@
 # A股短线每日复盘工作台
 
-一个自包含的 HTML 复盘工作台，按 **指数 → 情绪 → 题材 → 个股 → 消息面** 五个模块组织，
-数据由同花顺 iFinD 接口自动取数生成，人工判断（复盘结论、次日计划、题材逻辑、消息影响）在页面上填写并本地保存。
+一个自包含的 HTML 复盘工作台，按 **指数 → 趋势 → 情绪 → 题材 → 个股 → 消息面** 六个模块组织，
+数据由同花顺 iFinD 接口自动取数生成，人工判断（主观情绪、周期阶段、题材逻辑、消息影响）在页面上填写并本地保存。
 
 ```
-双击打开：ashare-review\复盘工作台.html
+在线（任何设备、永久有效）：https://friedhelmvv.github.io/ashare-review/
+本地（离线双击打开）：      ashare-review\复盘工作台.html
+临时公网（换一台机器演示）：  双击 上线工作台.cmd
 ```
 
 ---
@@ -451,16 +453,21 @@ $ws   = 'D:\deepseek harness\ashare-review'
   （新的会覆盖 `在线网址.txt`）。
 - 想让网址**固定不变**，见 4.6。
 
-### 4.6 固定网址（GitHub Pages，推荐）
+### 4.6 固定网址（GitHub Pages）
 
-上一节那个 `lhr.life` 网址每次启动都会变。要一个**永不变、电脑关了也能打开**的网址，
-用 GitHub Pages 托管静态站点：
+上一节那个 `trycloudflare.com` 网址每次启动都会变。要一个**永不变、电脑关了也能打开**的网址，
+用 GitHub Pages 托管静态站点。**本项目已经上线了**：
 
 ```
-https://<你的用户名>.github.io/ashare-review/
+https://friedhelmvv.github.io/ashare-review/
 ```
 
-**一次性准备（约 5 分钟）**
+仓库：<https://github.com/FriedhelmVV/ashare-review>（公开）。
+实测：首页 200 · 137,096 B、`data/history.js` 200 · 8,176 B，与本地逐字节一致；
+无头 Chrome 渲染出来 153,998 B 的 PNG，和本地 `preview-2026-09-30.png` 完全相同。
+`/tools/*`（含 `.gh-token`、`pages.json`）一律 404 —— 发布包根本不包含 `tools/`。
+
+**如果要换到别的账号 / 重新部署（约 5 分钟）**
 
 1. 注册 GitHub：<https://github.com/signup>
 2. 创建令牌：<https://github.com/settings/tokens/new?scopes=repo&description=ashare-review-publish>
@@ -468,7 +475,11 @@ https://<你的用户名>.github.io/ashare-review/
    - 生成后复制 `ghp_` 开头那串
 3. 在 `ashare-review\tools\` 下新建文本文件 `.gh-token`，把令牌粘进去（**只有这一行**）
    （参考 `tools\.gh-token.example`）。也可以改用环境变量 `GITHUB_TOKEN`。
+   ⚠️ 用记事本保存时注意别变成 `.gh-token.txt` —— 实测踩过：Windows 会存成 `.gh-token.gh-token`。
 4. **双击 `发布到固定网址.cmd`** —— 它会自动建仓库、开启 Pages、推送全部文件，并打印网址。
+   首次构建约 15~60 秒，之后每次推送几十秒生效。
+
+仓库名/分支写在 `tools/pages.json`（`{repo, branch, private}`），想改仓库名就改这里。
 
 **之后每天自动**
 
