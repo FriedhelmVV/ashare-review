@@ -134,23 +134,28 @@ td.r,th.r{text-align:right}
 .bar>i{display:block;height:100%;border-radius:3px;background:var(--blue)}
 .rank{font-family:var(--mono);color:var(--dim);font-size:10.5px}
 
-/* 梯队 */
-.ladder{display:flex;gap:11px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
-.col{min-width:186px;flex:0 0 auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
-  display:flex;flex-direction:column;max-height:560px}
-.col>header{padding:8px 11px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;
-  gap:7px;background:var(--panel2);border-radius:var(--r) var(--r) 0 0;position:sticky;top:0}
-.col>header b{font-size:13px}
-.col>header .cnt{font-size:11px;color:var(--dim);margin-left:auto;font-family:var(--mono)}
-.col .body{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
-.chip{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--up);
-  border-radius:7px;padding:6px 8px;transition:.14s}
-.chip:hover{border-color:var(--line2);background:var(--panel3);transform:translateX(2px)}
-.chip .r1{display:flex;align-items:baseline;gap:6px}
-.chip .r1 b{font-size:12.5px;font-weight:600}
-.chip .r1 .code{font-size:10px}
-.chip .r2{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);margin-top:2px;gap:6px}
-.chip .r2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 涨停梯队（天梯）：左边一列板高、右边四列个股卡片 */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:8px}
+.tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px}
+.tile .tn{font-size:12.5px;font-weight:600}
+.tile .tn em{font-style:normal;color:var(--dim);font-size:11px;font-family:var(--mono);margin-left:3px}
+.tile .ta{font-size:10.5px;color:var(--dim);margin-top:2px;font-family:var(--mono)}
+.lt{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.lt-row{display:flex;background:var(--panel)}
+.lt-row+.lt-row{border-top:1px solid var(--line)}
+.lt-rail{flex:0 0 74px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 6px;
+  font-size:12px;font-weight:600;color:var(--txt2);background:var(--panel2);border-right:1px solid var(--line)}
+.lt-rail.top{color:#ff8a8c;background:linear-gradient(180deg,rgba(242,70,74,.16),rgba(242,70,74,.02))}
+.lt-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);min-width:0}
+.chip{background:var(--panel);padding:9px 11px;display:flex;flex-direction:column;gap:3px;min-width:0;transition:.14s}
+.chip:hover{background:var(--panel3)}
+.chip .lt-top{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);font-family:var(--mono);min-height:12px}
+.chip .lt-top .lt-str{color:#ff8a8c;font-weight:600}
+.chip .lt-top .lt-amt{margin-left:auto}
+.chip>b{font-size:14px;font-weight:700;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .lt-tag{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-empty{background:var(--panel)}
+@media(max-width:820px){.lt-grid{grid-template-columns:repeat(2,1fr)}.lt-rail{flex-basis:54px;font-size:11px}.chip>b{font-size:13px}}
 
 /* 分项条 */
 .rows{display:flex;flex-direction:column;gap:8px}
@@ -247,9 +252,9 @@ td.r,th.r{text-align:right}
   .tr,.tabs,.filters,.toast{display:none!important}
   body{background:#fff;color:#111}
   .panel{display:block!important;margin-bottom:14px}
-  .card,.col,.kpi,.idx{break-inside:avoid;border-color:#ccc;background:#fff;box-shadow:none}
-  .col{max-height:none}.col .body{overflow:visible}
-  .ladder{flex-wrap:wrap}
+  .card,.col,.kpi,.idx,.lt,.lt-row,.chip,.tile{break-inside:avoid;border-color:#ccc;background:#fff;box-shadow:none}
+  .lt-rail{background:#f6f7f9;border-color:#ccc}
+  .lt-grid{background:#ccc}
   .note{min-height:64px;background:#fff;border-color:#ccc}
   input,select,textarea{background:#fff;border-color:#ccc;color:#111}
   .idx .cl,.kpi .v{color:#111}
@@ -971,9 +976,7 @@ function collectMissing(d){
   chk(s.promotion.overall,'情绪.晋级率');
   var withPct=d.themes.filter(function(t){return isN(t.pct);});
   if(d.themes.length&&!withPct.length)out.push('题材.板块涨跌幅');
-  if(!d.stocks.topAmount.length)out.push('个股.成交额榜');
-  if(!d.stocks.broken.length)out.push('个股.炸板股');
-  if(!d.stocks.limitDown.length)out.push('个股.跌停股');
+  if(!d.stocks.ladder.length)out.push('个股.涨停梯队');
   if(!d.news.items.length&&!d.news.manual.length)out.push('消息面.资讯');
   return out;
 }
@@ -1066,7 +1069,7 @@ function n0(v){return isN(v)?String(v):'—';}
 function renderStock(d){
   var ui=RV.ui,html='';
   html+='<div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap">'
-    +'<button data-sv="ladder" class="'+(ui.stockView==='ladder'?'on':'')+'" style="'+(ui.stockView==='ladder'?'background:var(--up-bg);border-color:rgba(242,70,74,.45);color:#ff8a8c':'')+'">涨停梯队视图</button>'
+    +'<button data-sv="ladder" class="'+(ui.stockView==='ladder'?'on':'')+'" style="'+(ui.stockView==='ladder'?'background:var(--up-bg);border-color:rgba(242,70,74,.45);color:#ff8a8c':'')+'">涨停天梯</button>'
     +'<button data-sv="table" class="'+(ui.stockView==='table'?'on':'')+'" style="'+(ui.stockView==='table'?'background:var(--up-bg);border-color:rgba(242,70,74,.45);color:#ff8a8c':'')+'">涨停明细表</button>'
     +'<span style="font-size:11px;color:var(--dim);margin-left:6px">共 '+int(d.sentiment.limitUpCount)+' 只涨停 · 最高 '+int(d.sentiment.maxStreak)+' 板</span>'
     +'<input id="stkSearch" placeholder="搜索代码/名称/行业" style="margin-left:auto;width:190px" value="'+esc(ui.stkQ||'')+'">'
@@ -1085,19 +1088,30 @@ function renderStock(d){
   var ladder=d.stocks.ladder.map(function(g){return {streak:g.streak,items:g.items.filter(match)};}).filter(function(g){return g.items.length;});
 
   if(ui.stockView==='ladder'){
-    html+='<div class="ladder">'+ladder.map(function(g){
-      var c=g.streak>=5?'#f2464a':g.streak>=3?'#e8a33d':g.streak===2?'#22c1c3':'#4c8dff';
-      return '<div class="col"><header><b style="color:'+c+'">'+(g.streak===1?'首板':g.streak+' 连板')+'</b>'
-        +'<span class="cnt">'+g.items.length+' 只</span></header><div class="body">'
-        +g.items.map(function(x){
-          var rk=rankNum(x.amountRank);
-          return '<div class="chip" style="border-left-color:'+c+'">'
-            +'<div class="r1"><b>'+esc(x.name)+'</b><span class="code">'+esc(x.code)+'</span></div>'
-            +'<div class="r2"><span>'+esc(x.industry||'—')+'</span><span class="num'+(rk&&rk<=500?' hi':'')+'">'+num(x.amount,1)+'亿</span></div>'
-            +'<div class="r2"><span>换手 '+num(x.turnover,1)+'%'+turnTag(x.turnover)+'</span><span class="num'+(rk&&rk<=500?' hi':'')+'">'+esc(x.amountRank||'')+'</span></div>'
-            +'</div>';
-        }).join('')+'</div></div>';
-    }).join('')+'</div>';
+    html+=themeTiles(d);
+    html+='<div class="card"><h3>涨停天梯 <span class="hint">最高板在最上面 · 每格右上是成交额 · 鼠标悬停看换手与排名</span>'
+      +'<span class="hint" style="margin-left:auto">'+int(d.sentiment.limitUpCount)+' 只 · 最高 '+int(d.sentiment.maxStreak)+' 板</span></h3><div class="lt">';
+    ladder.forEach(function(g,gi){
+      var isTop=gi===0,c=streakColor(g.streak);
+      var rail=isTop?'打开高度':(Number(g.streak)===1?'首板':g.streak+'板');
+      html+='<div class="lt-row"><div class="lt-rail'+(isTop?' top':'')+'">'+rail+'</div><div class="lt-grid">';
+      g.items.forEach(function(x){
+        var rk=rankNum(x.amountRank);
+        var tip=x.name+' '+x.code+'\n'+(x.industryFull||x.industry||'—')
+          +'\n成交额 '+num(x.amount,2)+' 亿 · 换手 '+num(x.turnover,2)+'%'
+          +(x.amountRank?'\n全市场成交额排名 '+x.amountRank:'');
+        html+='<div class="chip" title="'+esc(tip)+'">'
+          +'<div class="lt-top">'+(isTop?'<span class="lt-str">'+int(g.streak)+'连板</span>':'')
+          +'<span class="lt-amt'+(rk&&rk<=500?' hi':'')+'">'+num(x.amount,1)+'亿</span></div>'
+          +'<b>'+esc(x.name)+'</b>'
+          +'<div class="lt-tag" style="color:'+c+'">'+esc(x.industry||x.theme||'—')+turnTag(x.turnover)+'</div>'
+          +'</div>';
+      });
+      var pad=(4-(g.items.length%4))%4;
+      for(var i=0;i<pad;i++)html+='<div class="chip-empty"></div>';
+      html+='</div></div>';
+    });
+    html+='</div></div>';
   }else{
     var flat=[];
     d.stocks.ladder.forEach(function(g){g.items.forEach(function(x){flat.push(Object.assign({streak:g.streak},x));});});
@@ -1123,29 +1137,34 @@ function renderStock(d){
     html+='</tbody></table></div>';
   }
 
-  var wk=d.stocks.watchlist.concat([]);
-  html+='<div class="grid3 mt14">';
-  html+='<div class="card"><h3>炸板股 <span class="hint">'+d.stocks.broken.length+' 只</span></h3>'
-    +(d.stocks.broken.length?miniList(d.stocks.broken):'<div class="empty">未取到（盘中触板、收盘未封住）</div>')+'</div>';
-  html+='<div class="card"><h3>跌停股 <span class="hint">'+d.stocks.limitDown.length+' 只</span></h3>'
-    +(d.stocks.limitDown.length?miniList(d.stocks.limitDown):'<div class="empty">未取到</div>')+'</div>';
-  html+='<div class="card"><h3>成交额榜 <span class="hint">全市场</span></h3>'
-    +(d.stocks.topAmount.length?miniList(d.stocks.topAmount):'<div class="empty">未取到</div>')+'</div>';
-  html+='</div>';
   $('#p-stock').innerHTML=html;
   bindStock();
+}
+function streakColor(s){s=Number(s)||1;return s>=5?'#f2464a':s>=3?'#e8a33d':s===2?'#22c1c3':'#4c8dff';}
+/* 题材概览：把涨停股按申万行业归堆，前 6 个单列，其余并成「其他」（照天梯图的首屏样式） */
+function themeTiles(d){
+  var ts=(d.themes||[]).filter(function(t){return Number(t.limitUpCount)>0;})
+    .sort(function(a,b){return (Number(b.limitUpCount)||0)-(Number(a.limitUpCount)||0)||(Number(b.amount)||0)-(Number(a.amount)||0);});
+  if(!ts.length)return '';
+  var head=ts.slice(0,6),rest=ts.slice(6);
+  function tile(name,cnt,amount,pct){
+    var col=isN(pct)?(Number(pct)>0?'#f2464a':(Number(pct)<0?'#12b57f':'var(--txt)')):'var(--txt)';
+    return '<div class="tile"><div class="tn" style="color:'+col+'">'+esc(name)
+      +'<em>('+int(cnt)+')</em></div><div class="ta">成交额 '+num(amount,1)+'亿</div></div>';
+  }
+  var html='<div class="card"><h3>题材概览 <span class="hint">按申万行业归堆 · 括号里是涨停家数 · 成交额是板块内涨停股合计</span></h3><div class="tiles">';
+  head.forEach(function(t){html+=tile(t.name,t.limitUpCount,t.amount,t.pct);});
+  if(rest.length){
+    var n=0,am=0;
+    rest.forEach(function(t){n+=Number(t.limitUpCount)||0;am+=Number(t.amount)||0;});
+    html+=tile('其他',n,am,null);
+  }
+  return html+'</div></div>';
 }
 function sorth(key,label,ui,al){
   var on=ui.sortKey===key;
   return '<th class="s '+(al||'')+'" data-k="'+key+'" style="'+(on?'color:#ff8a8c':'')+'">'+label
     +(on?(ui.sortDir>0?' ▲':' ▼'):'')+'</th>';
-}
-function miniList(arr){
-  return '<table><tbody>'+arr.slice(0,14).map(function(x){
-    return '<tr><td><b>'+esc(x.name||x.code)+'</b> <span class="code">'+esc(x.code||'')+'</span></td>'
-      +'<td class="dim">'+esc(x.industry||'—')+'</td>'
-      +'<td class="r num '+cls(x.pct)+'">'+(isN(x.pct)?pct(x.pct):num(x.amount,1)+'亿')+'</td></tr>';
-  }).join('')+'</tbody></table>';
 }
 function bindStock(){
   $$('#p-stock [data-sv]').forEach(function(b){
