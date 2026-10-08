@@ -332,7 +332,28 @@ iFinD 的**按工具**配额是真实的硬约束。实测把 `stock/search_stoc
 触发 ：每周一至周五 19:00（StartWhenAvailable，错过会在开机后补跑）
 执行 ：<内置 node.exe> "…\ashare-review\tools\daily-update.cjs" --catch-up
 工作目录：D:\deepseek harness\ashare-review
+失败重试：RestartOnFailure，失败后每 5 分钟重试，最多 3 次
+超时  ：ExecutionTimeLimit = PT30M（卡死超过 30 分钟强制结束，不会挂到第二天）
 ```
+
+**为什么要有 `--catch-up` + 失败重试**
+
+2026-10-08 真的踩过一次：任务 19:00:00 准点启动、也正确判定出当天是交易日，
+但进程在 `19:00:02` 被强制终止（计划任务「上次结果」= `-1073741510`，即 `0xC000013A`），
+当天的数据没落盘。两道保险让它自己恢复：
+
+- `--catch-up` 每次都会从「本地最后一天」往后补齐所有缺失的自然日 —— 所以就算某天全挂，
+  下一次运行也会把那一天连同新的一天一起补上；
+- `RestartOnFailure` 让被终止/失败的任务在 5 分钟后自动重跑。
+
+同一晚还暴露出两个**只在真交易日才会走到**的 bug（休市那几天全被 `skip` 挡住，所以一直没暴露）：
+`tools/daily-update.cjs:259` 与 `:277` 两处 `spawnSync` 多传了一个参数
+（`spawnSync(node, [SCRIPT], ['--days', …], {options})` —— 第 3 个数组被 Node 当成 `options`，
+抛 `ERR_INVALID_ARG_TYPE: The "options" argument must be of type object. Received an instance of Array`），
+导致「刷新多日历史序列」和「自动发布到 GitHub Pages」两步全崩。已改为正确的三参数形式。
+
+多日历史的窗口由 `tools/daily-update.cjs` 的 `HISTORY_DAYS` 控制，**单位是自然日**（不是交易日）：
+`60` → 约 38~41 个交易日，足够喂满趋势页的「近 30 日」档。
 
 管理命令：
 
