@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>A股短线每日复盘工作台</title>
+<title>F(X)=Y的复盘工作台</title>
 <style>
 :root{
   --bg:#0a0e13; --bg2:#0e141c; --panel:#131b25; --panel2:#18222e; --panel3:#1e2a38;
@@ -311,8 +311,8 @@ td.r,th.r{text-align:right}
   <div class="brand">
     <div class="logo">复</div>
     <div>
-      <h1>A股短线每日复盘工作台</h1>
-      <p id="sub">指数 · 情绪 · 题材 · 个股 · 消息面</p>
+      <h1>F(X)=Y的复盘工作台</h1>
+      <p id="sub">指数 · 竞价 · 趋势 · 情绪 · 题材 · 个股 · 消息面</p>
     </div>
   </div>
   <div class="tr">
@@ -1677,7 +1677,7 @@ function bind(){
   $('#btnPrint').addEventListener('click',function(){window.print();});
   $('#btnExport').addEventListener('click',function(){
     var d=cur();
-    var pack={exportedAt:new Date().toISOString(),app:'A股短线复盘工作台',schemaVersion:1,
+    var pack={exportedAt:new Date().toISOString(),app:'F(X)=Y的复盘工作台',schemaVersion:1,
       date:RV.date,day:JSON.parse(JSON.stringify(d)),notes:notesOf(RV.date)};
     delete pack.day._seed;
     var blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
