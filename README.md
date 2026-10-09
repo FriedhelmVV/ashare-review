@@ -584,7 +584,16 @@ https://friedhelmvv.github.io/ashare-review/
 - **仓库是公开的**：GitHub Pages 在免费账号上只能从**公开仓库**发布。
   也就是说 `data/*.js` 里的盘面数据、以及 `data/<date>.review.js` 里**你写的复盘批注**，
   任何知道网址的人都能看到。要藏起来需要 GitHub Pro（私有仓库 Pages）或改用别的方案。
-- 首次推送后 GitHub 需要约 1 分钟构建；之后每次推送通常几十秒生效。
+- **首次推送后 GitHub 需要约 1 分钟构建；之后每次推送通常几十秒生效。**
+- **缓存：GitHub Pages 给所有文件发 `Cache-Control: max-age=600`**（也就是十分钟）。
+  这会造成两个「看起来像没更新」的假象：
+  1. **前端已自带对策**：`复盘工作台.html` 里的 `bust()` 会给所有 `data/*.js` 加时间戳，
+     `freshManifest()` 会再 `fetch` 一次带时间戳的 `data/manifest.js`
+     （静态 `<script>` 那份可能命中缓存，甚至缓存里根本没有新的交易日）。
+     `file://` 下不加时间戳，静默回退到内嵌种子。**所以你只要刷新页面就能看到当天数据。**
+  2. **验证发布是否成功时必须加 cache-buster**，否则会误判成发布失败：
+     `curl -H 'Cache-Control: no-cache' "https://friedhelmvv.github.io/ashare-review/?v=$(unix秒)"`。
+     不带 `?v=` 时可能长时间返回旧字节数（实测踩过：构建早就好了，curl 仍返回上一版）。
 - 令牌等价于账号写权限：别贴聊天窗口、别提交到仓库。撤销：<https://github.com/settings/tokens>。
 
 ## 五、下一步可以完善的方向
