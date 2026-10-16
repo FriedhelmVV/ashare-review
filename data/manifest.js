@@ -62,6 +62,24 @@ window.RV_MANIFEST=[
     "limitUp": 39,
     "totalAmount": 14144.03,
     "generatedAt": "2026-10-14T19:00:47+08:00"
+  },
+  {
+    "date": "2026-10-15",
+    "js": "data/2026-10-15.js",
+    "json": "data/2026-10-15.json",
+    "label": "2026-10-15",
+    "limitUp": 36,
+    "totalAmount": 16330.05,
+    "generatedAt": "2026-10-16T20:30:44+08:00"
+  },
+  {
+    "date": "2026-10-16",
+    "js": "data/2026-10-16.js",
+    "json": "data/2026-10-16.json",
+    "label": "2026-10-16",
+    "limitUp": 61,
+    "totalAmount": 15554.21,
+    "generatedAt": "2026-10-16T20:31:43+08:00"
   }
 ];
 window.RV_HISTORY_SRC="data/history.js";
