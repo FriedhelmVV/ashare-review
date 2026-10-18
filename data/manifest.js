@@ -15,8 +15,7 @@ window.RV_MANIFEST=[
     "label": "2026-09-30",
     "limitUp": 56,
     "totalAmount": 14380.18,
-    "generatedAt": "2026-10-08T20:19:42+08:00",
-    "review": "data/2026-09-30.review.js"
+    "generatedAt": "2026-10-08T20:19:42+08:00"
   },
   {
     "date": "2026-10-08",
