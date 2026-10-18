@@ -52,8 +52,8 @@
 
 > 📌 **2026-10-17 事故与重建**：DeepSeek Harness 应用重装时把装在其目录下的本项目一并清空了。
 > 从 GitHub 仓库恢复了 `复盘工作台.html`、`README.md`、`data/`（含 9 个交易日的 `.js`，并据此反推出了 `.json`），
-> `tools/` 与 `build/` 的脚本全部重写。**请把项目移到应用安装目录之外**
-> （例如 `D:\projects\ashare-review`），否则下次升级还会再丢一次。
+> `tools/` 与 `build/` 的脚本全部重写。
+> **2026-10-18 已把项目从应用安装目录挪到 `D:\ashare-review`**，计划任务也已指向新路径，此后升级应用不会再动它。
 
 ### 数据层 vs 标注层
 
@@ -229,7 +229,7 @@ data/history.js              ← 多日序列层。区间问法一次拉多天�
 
 ```powershell
 $node = 'C:\Users\p\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe'
-$ws   = 'D:\deepseek harness\ashare-review'
+$ws   = 'D:\ashare-review'
 
 # 1) 先取数（见第四节）
 & $node "$ws\tools\fetch.cjs" --date 2026-09-30
@@ -249,13 +249,13 @@ $ws   = 'D:\deepseek harness\ashare-review'
 ```powershell
 # Node 不在 PATH，用内置运行时
 $node = 'C:\Users\p\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe'
-$ws   = 'D:\deepseek harness\ashare-review'
+$ws   = 'D:\ashare-review'
 
 # 正常取一天
 & $node "$ws\tools\fetch.cjs" --date 2026-09-30
 
 # search_stocks 配额用尽时，用本地 CSV 兜底提供涨停梯队
-& $node "$ws\tools\fetch.cjs" --date 2026-09-30 --limitup-csv "D:\deepseek harness\涨停股_20260930.csv"
+& $node "$ws\tools\fetch.cjs" --date 2026-09-30 --limitup-csv "D:\ashare-review\inbox\涨停股_20260930.csv"
 
 # 只重建 manifest.js，不发任何请求（手工改过 data/ 之后用）
 & $node "$ws\tools\fetch.cjs" --manifest-only
@@ -410,7 +410,7 @@ iFinD 的**按工具**配额是真实的硬约束。实测把 `stock/search_stoc
 任务名：\F(X)=Y的复盘工作台-每日取数
 触发 ：每周一至周五 19:00（StartWhenAvailable，错过会在开机后补跑）
 执行 ：<内置 node.exe> "…\ashare-review\tools\daily-update.cjs" --catch-up
-工作目录：D:\deepseek harness\ashare-review
+工作目录：D:\ashare-review
 失败重试：RestartOnFailure，失败后每 5 分钟重试，最多 3 次
 超时  ：ExecutionTimeLimit = PT30M（卡死超过 30 分钟强制结束，不会挂到第二天）
 ```
@@ -438,7 +438,7 @@ iFinD 的**按工具**配额是真实的硬约束。实测把 `stock/search_stoc
 
 ```powershell
 $node = 'C:\Users\p\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe'
-$ws   = 'D:\deepseek harness\ashare-review'
+$ws   = 'D:\ashare-review'
 
 & $node "$ws\tools\schedule.cjs"               # 查看状态（下次运行时间、上次结果、最近逐日结果）
 & $node "$ws\tools\schedule.cjs" --install     # 注册；已存在则覆盖。改时间：--time 19:30
@@ -563,9 +563,11 @@ https://friedhelmvv.github.io/ashare-review/
 ```
 
 仓库：<https://github.com/FriedhelmVV/ashare-review>（公开）。
-实测：首页 200 · 137,096 B、`data/history.js` 200 · 8,176 B，与本地逐字节一致；
-无头 Chrome 渲染出来 153,998 B 的 PNG，和本地 `preview-2026-09-30.png` 完全相同。
-`/tools/*`（含 `.gh-token`、`pages.json`）一律 404 —— 发布包根本不包含 `tools/`。
+实测（2026-10-18）：首页 200 · 200,725 B = 本地 `复盘工作台.html` 逐字节相同；
+`data/manifest.js` 200 · 2,132 B、`data/history.js` 200 · 9,901 B；
+无头 Chrome 渲染线上页面，Tab 栏 8 个（含「选股」）、日期下拉 9 个交易日、选股页正常出数。
+`/tools/*`（含 `.gh-token`、`pages.json`、`pick-rules.json`）与 `/data/*.review.js` 一律 404
+—— 发布包根本不包含 `tools/`，复盘层文件也被排除（见下）。
 
 **如果要换到别的账号 / 重新部署（约 5 分钟）**
 
@@ -604,6 +606,12 @@ https://friedhelmvv.github.io/ashare-review/
   通常只有 `data/<今天>.js`、`data/history.js`、`data/manifest.js` 三个要传。
 - **白名单组包**：只发布 `index.html`（= `复盘工作台.html`）、`data/*.js`、`README.md`、
   `.nojekyll`。**`tools/` 整个目录不上传**，所以 `.gh-token`、日志、计划任务脚本都不会外泄。
+- **复盘层不公开**：`data/<date>.review.js`（你写的人工复盘批注）**不进发布包**，
+  同时发布包里的 `data/manifest.js` 会被摘掉每个条目的 `review` 字段
+  （否则线上会去 404 拉一个不存在的脚本）。本地文件完全不动，双击本地 HTML 照样能看到复盘。
+- **会自动清理远端的历史遗留**：每次发布都会把远端 `data/*.js` 里「已不在发布包中」的文件删掉，
+  所以早期误传上去的 `data/2026-09-30.review.js` 已被自动移除（实测线上 404）。
+  这条规则只作用于 `data/*.js` 这一个命名空间，不会碰仓库里其他文件。
 - **`--stage` 可本地验收**：把发布包落到一个目录，用
   `node tools\serve.cjs --root tmp\site --port 8805` 起个服务，就能在推之前确认它真的能打开
   （`serve.cjs` 的首页会在 `复盘工作台.html` 与 `index.html` 之间自动识别）。
@@ -611,8 +619,10 @@ https://friedhelmvv.github.io/ashare-review/
 **注意**
 
 - **仓库是公开的**：GitHub Pages 在免费账号上只能从**公开仓库**发布。
-  也就是说 `data/*.js` 里的盘面数据、以及 `data/<date>.review.js` 里**你写的复盘批注**，
-  任何知道网址的人都能看到。要藏起来需要 GitHub Pro（私有仓库 Pages）或改用别的方案。
+  也就是说 `data/*.js` 里的盘面数据任何知道网址的人都能看到。
+  **你写的人工复盘批注已经不放上去了**（`data/<date>.review.js` 被排除在发布包外，
+  `manifest.js` 里的 `review` 字段也会被摘掉），所以复盘内容只留在本地。
+  如果连盘面数据也不想公开，需要 GitHub Pro（私有仓库 Pages）或改用别的方案。
 - **首次推送后 GitHub 需要约 1 分钟构建；之后每次推送通常几十秒生效。**
 - **缓存：GitHub Pages 给所有文件发 `Cache-Control: max-age=600`**（也就是十分钟）。
   这会造成两个「看起来像没更新」的假象：
