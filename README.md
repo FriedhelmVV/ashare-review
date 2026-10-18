@@ -31,22 +31,29 @@
 | `tools/trading-day.cjs` | 判断某天是不是 A 股交易日（iFinD 没有交易日历，靠「休市日会返回上一交易日的收盘价」判定） | 手工维护 |
 | `tools/daily-update.cjs` | **自动更新入口**：交易日判定 → 选增量/全量 → 调 `fetch.cjs` → 写日志与状态 | 手工维护 |
 | `tools/schedule.cjs` | 注册 / 卸载 / 查看 Windows 计划任务「F(X)=Y的复盘工作台-每日取数」 | 手工维护 |
-| `tools/serve.cjs` | **只读静态服务**：把工作台与 `data/` 用 HTTP 提供出去（GET/HEAD、无目录列举、拦 `..` 穿越） | 手工维护 |
-| `tools/online.cjs` | **一条命令上线**：起 `serve.cjs` + 建公网隧道 + 从公网侧自测 + 写网址；`--status` / `--stop` 管理 | 手工维护 |
+| `tools/pick.cjs` | **选股引擎**：从当日涨停梯队 + 竞价 TOP40 组池，按 `pick-rules.json` 跑 8 个模式，写回 `data/<date>.json` 的 `picks` | 手工维护 |
+| `tools/pick-rules.json` | **选股条件**（数据驱动，改条件不用改代码）。`where` 条件 DSL + `sort` + `limit` | 手工维护 |
+| `tools/serve.cjs` | **只读静态服务**：把工作台与 `data/` 用 HTTP 提供出去（GET/HEAD、无目录列举、拦 `..` 穿越）；`--root` 可指向发布包 | 手工维护 |
+| `tools/online.cjs` | 公网隧道（`serve.cjs` + cloudflared/ssh 隧道 + 公网自测）。**2026-10-17 重建时未恢复**，需要临时分享再按 4.5 节补 | 手工维护 |
 | `tools/publish-pages.cjs` | **发布到 GitHub Pages**：白名单组包 + 按内容差异增量提交 + 开 Pages；`--dry-run` / `--stage` 可离线验收 | 手工维护 |
 | `tools/.gh-token` | GitHub 令牌（一行，**不会被打包上传**）。参考 `.gh-token.example` | 手工维护 |
-| `tools/bin/cloudflared.exe` | 隧道通道（51MB，已下载；不放也能用 SSH 通道） | 手工下载 |
 | `tools/daily-update.log` | 自动任务的运行日志（追加写，不轮转；出问题先看这里） | `daily-update.cjs` 生成 |
 | `tools/daily-update.state.json` | 最近一次运行的逐日结果，供 `schedule.cjs` 显示 | `daily-update.cjs` 生成 |
 | `tools/known-days.json` | 「已知非交易日」缓存，避免长假期间每晚重复探测同一批日期 | `daily-update.cjs` 生成 |
 | `inbox/涨停股_YYYYMMDD.csv` | **手工补数通道**：把同花顺导出的涨停股表丢进来，自动任务会用它补涨停梯队 | 手工维护 |
-| `build/build-seed.cjs` | 生成内嵌种子数据集（`--from-data` 用真实取数结果，不带参数则从涨停股 CSV 兜底） | 手工维护 |
+| `build/build-seed.cjs` | 生成内嵌种子数据集（`--from-data data/<date>.json` 用真实取数结果；不带参数取 `data/` 里最新一天） | 手工维护 |
 | `build/inject-seed.cjs` | 把种子注入 HTML，并做语法 / 字段自检 | 手工维护 |
-| `build/publish-review.cjs` | 把复盘内容发布成复盘层文件并重建 manifest | 手工维护 |
-| `build/mkshots.cjs` / `mkshot-auto.cjs` / `mkshot-pack.cjs` | 生成截图页，供无头浏览器视觉检查 | 手工维护 |
-| `build/verify*.cjs` | 无头浏览器集成断言脚本 | 手工维护 |
+| `build/mkshot-review.cjs` | 出交付截图：`<tab> <宽,高> <输出> [日期]`，用真实 `data/` + 标注层渲染 | 手工维护 |
+| `build/verify.cjs` | **全站主回归**（9 个交易日、8 个 Tab、竞价与选股逐个点开） | 手工维护 |
+| `build/verify-offline.cjs` | 离线单文件回归（只有 html、没有 `data/` 时走内嵌种子） | 手工维护 |
+| `build/verify-publish.cjs` | 发布包安全回归（白名单 / 令牌不入包 / `--stage` 站点可打开） | 手工维护 |
 | `SCHEMA.md` | **数据契约**。前端与取数脚本之间唯一的接口约定 | 改字段前先改这里 |
 | `README.md` | 本文件 | — |
+
+> 📌 **2026-10-17 事故与重建**：DeepSeek Harness 应用重装时把装在其目录下的本项目一并清空了。
+> 从 GitHub 仓库恢复了 `复盘工作台.html`、`README.md`、`data/`（含 9 个交易日的 `.js`，并据此反推出了 `.json`），
+> `tools/` 与 `build/` 的脚本全部重写。**请把项目移到应用安装目录之外**
+> （例如 `D:\projects\ashare-review`），否则下次升级还会再丢一次。
 
 ### 数据层 vs 标注层
 
@@ -79,7 +86,7 @@ data/history.js              ← 多日序列层。区间问法一次拉多天�
 │  ① 六大指数卡片（点位 / 涨跌幅 / 成交额）   ② 情绪温度计 │
 │  ③ 8 个核心 KPI：涨停 / 跌停 / 最高连板 / 炸板率 /        │
 │     涨跌家数 / 两市成交 / 晋级率 / 涨停成交               │
-├─ Tab：指数 | 竞价 | 趋势 | 情绪 | 题材 | 个股 | 消息面 ─────┤
+├─ Tab：指数 | 竞价 | 趋势 | 情绪 | 题材 | 个股 | 选股 | 消息面 ────┤
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -168,7 +175,29 @@ data/history.js              ← 多日序列层。区间问法一次拉多天�
 
 看什么：成交额排名能区分「真金白银」和「缩量一字」；换手率能区分「换手板」和「一字板」。2026-09-30 的教科书例子——新华传媒 7 板但换手 1.34%、成交 1.45 亿、排名 2014（缩量一字）；襄阳轴承 4 板但换手 19.65%、成交 10.75 亿、排名 255（分歧换手）。**同为连板，完全不是一个性质**，卡片上的徽标让这个对比不用翻数据就能看见。
 
-### 模块七 · 消息面
+### 模块七 · 选股
+- **规则引擎驱动**：所有筛选条件写在 `tools/pick-rules.json`，改条件不用改代码。每天取完数自动跑一次 `tools/pick.cjs --date <日期>`，结果落到 `data/<date>.json` 的 `picks` 字段。
+- **选股池** = 当日涨停梯队 + 集合竞价 TOP40 合并去重（约 70~105 只）。这样池子同时含「已经封住的」和「竞价就有大资金进场的」两类，不用等到涨停才发现。
+- **8 个模式**（数字是 2026-10-16 的命中数）：
+
+  | 模式 | id | 条件要点 | 10-16 命中 |
+  |---|---|---|---|
+  | 主线共振 | `mainline` | 题材当日涨停 ≥4 家且板块收涨 | 38 |
+  | 换手首板 | `huanshou-shouban` | 首板 + 换手 ≥8% + 成交 ≥5 亿 | 4 |
+  | 缩量连板 | `suoliang-lianban` | 连板 ≥2 + 换手 ≤3% | 2 |
+  | 高位分歧 | `gaowei-fenqi` | 连板 ≥4 + 换手 ≥8% | 1 |
+  | 竞价强势 | `jingjia-qiangshi` | 竞价额全市场排名 ≤15 且 9:25 高开 | 13 |
+  | 竞价封单 | `jingjia-fengdan` | 9:25 未匹配量为正（买方剩余）且竞价额 ≥1 亿 | 6 |
+  | 晋级成功 | `jinji` | 昨日涨停今日再涨停，且连板数 = 昨连板+1 | 6 |
+  | 断板反包 | `fanbao` | 近 6 个交易日出现过 ≥2 连板，今天断板后重新封首板 | 1 |
+
+- 每个模式卡片直接给表格：股票 / 连板 / 成交额 / 换手 / 竞价额 / 竞价涨幅 / 题材（含板块涨幅）/ **入选理由**（一行读得懂的话）。点上方模式芯片切换。
+- 条件语法：`where` 里每个字段支持 `eq / neq / gt / gte / lt / lte / in / nin / has / notnull / isnull / true / false`，值可以写裸值也可以写 `{op: 值}`；`sort` 按数组**从次要到主要**依次稳定排序，空值永远排最后；`limit` 默认 20。
+- ⚠️ 这是**规则筛选，不是投资建议**。选股池只覆盖「涨停 + 竞价前列」，没进这两个池子的票不会被选出来。
+
+看什么：把「主线共振」和「竞价强势」对起来看——前者说明**板块里已经有资金封住了**，后者说明**竞价就有大资金愿意排队**；两个都命中的票，才是次日最容易接力的。
+
+### 模块八 · 消息面
 - 消息按热度排序，可按 **政策 / 产业 / 公司 / 海外 / 资金** 标签筛选。
 - **正文摘要**：标题下面默认显示两行 `summary`（iFinD `资讯内容`，最多 200 字），点一下展开全文。政策细节、涨停原因往往只在正文里，光看标题是读不出来的。
 - 每条可写「影响判断 / 对应题材」备注。
@@ -630,22 +659,17 @@ https://friedhelmvv.github.io/ashare-review/
 
   | 脚本 | 覆盖 |
   |---|---|
-  | `build/verify.cjs` | 两日全量：KPI 8 项、情绪分与阶段、梯队柱、题材行、消息条数、缺失字段、告警数、面板可见性 |
-  | `build/verify-opt.cjs` | 本轮三项优化：断层封顶后的高度分、7 根梯队柱（含空缺层）、换手/缩量徽标、大资金高亮、消息摘要展开 |
-  | `build/verify-trend.cjs` | 「趋势」Tab：Tab 栏已换成趋势、`#p-review` 与 `[data-note]` 均已消失、4 张图（含情绪温度）、逐日表 20/30 行、7 个区间读数、情绪页的滑块与阶段按钮仍在 |
-  | `build/verify-autoreview.cjs` | **标注层**自动加载：情绪分覆写（滑块 55）、阶段按钮高亮、题材备注 12 条、消息批注 3 条、按日隔离（切 09-29 清空、切回仍在） |
-  | `build/verify-newsnote.cjs` | 消息批注：失效批注兜底区行数/标题/内容、改批注后 localStorage 写成 `{t,n}` 结构 |
-  | `build/verify-auction.cjs` | 「竞价」Tab：Tab 栏含竞价且在第 2 位、三天各 40 行 × 3 时点全有匹配价与未匹配量、首行是当日竞价额第一、涨幅越界打「新」标、无 `auction` 的日子走空态、概览三个读数 |
-  | `build/verify-offline.cjs` | 离线兜底：只拷 `复盘工作台.html` 一个文件时，内嵌种子是否仍是完整一天，且「趋势」Tab 用内嵌历史种子也能出图 |
-  | `build/verify-pack.cjs` | 「载入 JSON」导入链路：复盘包载入后情绪分与阶段覆写生效 |
-  | `build/verify-auto.cjs` | 自动更新链路：交易日判定（周末/休市/真交易日）、`daily-update` 的分支与参数、状态与缓存文件、Windows 计划任务的注册与设置 |
-  | `build/verify-serve.cjs` | 上线服务 `tools/serve.cjs`：`/healthz`、四个别名路由、数据文件可读、`no-store`/CORS 头、三种 `..` 穿越都被拦且不泄漏系统文件、POST/DELETE 405、目录不列举 |
-  | `build/verify-publish.cjs` | 发布链路 `tools/publish-pages.cjs`（离线，不需要令牌）：组包白名单、**`tools/` 与令牌绝不入包**、`--dry-run` 差异算法、无令牌时友好退出、`--stage` 出来的站点能被 `serve.cjs` 独立打开 |
+  | `build/verify.cjs` | **全站主回归**：Tab 结构（含「选股」）、9 个交易日逐日数据完整性（涨停/最高板/梯队/题材/板块/消息/竞价 40 行/选股 8 模式/数据体检 0 项）、竞价 Tab 三时点 120 格、选股 Tab 8 个模式逐个点开、趋势 Tab 图与表、KPI 8 项与情绪分 |
+  | `build/verify-offline.cjs` | 离线兜底：只拷 `复盘工作台.html` 一个文件（没有 `data/`）时，内嵌种子仍能撑起完整一天——8 个 Tab 全部能点亮、竞价 40 行、选股 8 模式、情绪 54 分/发酵 |
+  | `build/verify-publish.cjs` | 发布链路 `tools/publish-pages.cjs`（离线，不需要令牌）：组包白名单 15 个文件、**`tools/` 与令牌绝不入包**、内容里无 `ghp_` 泄漏、`--dry-run` 差异算法、无令牌时友好退出、`--stage` 出来的站点能被 `serve.cjs` 独立打开 |
 
-  > 📌 `verify-autoreview.cjs` 原先是验证「复盘结论」三栏文本域的；该 Tab 移除后已**改造成验证标注层**
-  > （题材备注 / 消息批注 / 情绪覆写仍会自动带出），`verify-pack.cjs` 的断言目标同样从文本域换成了覆写控件。
-  > 「导出 / 载入 JSON」按钮保留，复盘包里的 `summary/plan/risks/watch` 字段仍会被读入并保存，只是不再有 UI 展示。
+  > 📌 **2026-10-17 应用重装把整个项目目录清空了**，之后从 GitHub 仓库
+  > <https://github.com/FriedhelmVV/ashare-review> 恢复了 `复盘工作台.html`、`README.md`、`data/`，
+  > `tools/` 与 `build/` 的脚本全部重写。原来那 9 个细分断言脚本
+  > （`verify-opt` / `verify-trend` / `verify-autoreview` / `verify-newsnote` / `verify-auction` /
+  > `verify-pack` / `verify-auto` / `verify-serve`）没有逐字恢复，它们的断言已合并进上面这个 `verify.cjs`；
+  > 如果以后要加细粒度断言，建议按同样的「注入探针 + `--dump-dom` 取 `===V===` JSON」模式新建脚本。
 
-  另外 `build/mkshot-review.cjs <tab> <宽,高> <输出文件>` 可以直接用真实的 `data/` + 标注层出图
-  （`index trend sentiment theme stock news` 六个 Tab），用来更新交付截图。
+  另外 `build/mkshot-review.cjs <tab> <宽,高> <输出文件> [日期]` 可以直接用真实的 `data/` + 标注层出图
+  （`index auction trend sentiment theme stock pick news` 八个 Tab），用来更新交付截图。
 - 所有图表都是内联 SVG / CSS，不引第三方库，保证离线双击可用。
