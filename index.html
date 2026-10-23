@@ -1366,6 +1366,11 @@ function renderTheme(d){
 function n0(v){return isN(v)?String(v):'—';}
 
 /* ═══════════ 模块四：个股 ═══════════ */
+/** 档内排序：最后涨停时间早的在前（越早封板越强）；没有时间的排最后 */
+function byLastTime(a,b){
+  var ta=a.lastTime||'99:99', tb=b.lastTime||'99:99';
+  return ta<tb?-1:ta>tb?1:0;
+}
 function renderStock(d){
   var ui=RV.ui,html='';
   html+='<div style="display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap">'
@@ -1385,11 +1390,11 @@ function renderStock(d){
     return String(x.name||'').toLowerCase().indexOf(q)>=0||String(x.code||'').toLowerCase().indexOf(q)>=0
       ||String(x.industry||'').toLowerCase().indexOf(q)>=0;
   };
-  var ladder=d.stocks.ladder.map(function(g){return {streak:g.streak,items:g.items.filter(match)};}).filter(function(g){return g.items.length;});
+  var ladder=d.stocks.ladder.map(function(g){return {streak:g.streak,items:g.items.filter(match).sort(byLastTime)};}).filter(function(g){return g.items.length;});
 
   if(ui.stockView==='ladder'){
     html+=themeTiles(d);
-    html+='<div class="card"><h3>涨停天梯 <span class="hint">最高板在最上面 · 每格左上是最后涨停时间、右上是成交额 · 悬停看首封/开板/换手/排名</span>'
+    html+='<div class="card"><h3>涨停天梯 <span class="hint">最高板在最上面 · 每行按最后涨停时间从早到晚排（越早封板越强）· 每格左上是最后涨停时间、右上是成交额 · 悬停看首封/开板/换手/排名</span>'
       +'<span class="hint" style="margin-left:auto">'+int(d.sentiment.limitUpCount)+' 只 · 最高 '+int(d.sentiment.maxStreak)+' 板</span></h3><div class="lt">';
     ladder.forEach(function(g,gi){
       var isTop=gi===0,c=streakColor(g.streak);
