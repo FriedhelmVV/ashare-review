@@ -141,7 +141,7 @@ window.RV_MANIFEST=[
     "label": "2026-10-27",
     "limitUp": 42,
     "totalAmount": 14609.58,
-    "generatedAt": "2026-10-27T19:00:54+08:00"
+    "generatedAt": "2026-10-28T13:26:17+08:00"
   }
 ];
 window.RV_HISTORY_SRC="data/history.js";
