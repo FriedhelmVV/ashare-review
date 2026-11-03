@@ -178,6 +178,15 @@ window.RV_MANIFEST=[
     "limitUp": 100,
     "totalAmount": 17836.95,
     "generatedAt": "2026-11-02T19:00:56+08:00"
+  },
+  {
+    "date": "2026-11-03",
+    "js": "data/2026-11-03.js",
+    "json": "data/2026-11-03.json",
+    "label": "2026-11-03",
+    "limitUp": 52,
+    "totalAmount": 17034.37,
+    "generatedAt": "2026-11-03T19:01:06+08:00"
   }
 ];
 window.RV_HISTORY_SRC="data/history.js";
