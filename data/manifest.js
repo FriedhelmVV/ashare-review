@@ -204,7 +204,7 @@ window.RV_MANIFEST=[
     "label": "2026-11-05",
     "limitUp": 86,
     "totalAmount": 21179.12,
-    "generatedAt": "2026-11-05T19:01:22+08:00"
+    "generatedAt": "2026-11-08T12:37:47+08:00"
   },
   {
     "date": "2026-11-06",
