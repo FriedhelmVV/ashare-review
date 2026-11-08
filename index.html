@@ -138,6 +138,17 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue)}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
 .kpi .k{font-size:10.5px;color:var(--dim);display:flex;align-items:center;gap:4px}
 .kpi .v{font-size:19px;font-weight:650;line-height:1.25;font-family:var(--mono)}
+/* 图表悬停提示 + 点标签 */
+.chart .plbl{font-size:9.5px;font-weight:600;stroke:var(--bg);stroke-width:2.6px;paint-order:stroke;stroke-linejoin:round}
+.chart .guide{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 3;pointer-events:none}
+.chtip{position:fixed;z-index:70;display:none;min-width:158px;max-width:240px;padding:8px 10px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line2);box-shadow:var(--shadow2);font-size:11px;pointer-events:none}
+.chtip .h{font-weight:700;color:var(--txt);margin-bottom:5px;font-size:11.5px;letter-spacing:.02em}
+.chtip .r{display:flex;align-items:center;gap:6px;line-height:1.75}
+.chtip .r i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.chtip .r .n{color:var(--txt2);flex:1;white-space:nowrap}
+.chtip .r b{color:var(--txt);font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+
 /* 零值标注：把「0」和「—」区分开（0 = 真的没有，— = 没取到） */
 .kpi .ztag{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font-style:normal;
   font-size:10px;font-weight:500;letter-spacing:.02em;vertical-align:middle;
@@ -1459,6 +1470,103 @@ function renderAuction(d){
   bindAuctionDays();
 }
 
+/* ── 图表悬停提示（趋势 Tab 通用） ───────────────── */
+var TIP_EL=null;
+function ensureTip(){
+  if(!TIP_EL){
+    TIP_EL=document.createElement('div');
+    TIP_EL.className='chtip';
+    document.body.appendChild(TIP_EL);
+  }
+  return TIP_EL;
+}
+function bindCharts(root){
+  var svgs=(root||document).querySelectorAll('svg.chart[data-cid]');
+  Array.prototype.forEach.call(svgs,function(svg){
+    if(svg.__bound)return;
+    svg.__bound=1;
+    var hide=function(){
+      var tip=ensureTip();tip.style.display='none';
+      var gl=svg.querySelector('.guide');if(gl)gl.setAttribute('visibility','hidden');
+    };
+    svg.addEventListener('mousemove',function(ev){
+      var meta=CH_META[Number(svg.getAttribute('data-cid'))];
+      if(!meta)return;
+      /* 不用 getScreenCTM()（无头浏览器里可能为 null），直接按 viewBox 换算 */
+      var rect=svg.getBoundingClientRect();
+      var vb=svg.viewBox&&svg.viewBox.baseVal;
+      var vbw=(vb&&vb.width)||g.w, vbh=(vb&&vb.height)||g.h;
+      var sc=Math.min(rect.width/vbw,rect.height/vbh)||1;
+      var ox=(rect.width-vbw*sc)/2, oy=(rect.height-vbh*sc)/2;
+      var p={x:(ev.clientX-rect.left-ox)/sc,y:(ev.clientY-rect.top-oy)/sc};
+      var g=meta.geom,slot=(g.w-g.pl-g.pr)/g.n;
+      var i=Math.floor((p.x-g.pl)/slot);
+      if(i<0)i=0;if(i>g.n-1)i=g.n-1;
+      var gx=g.pl+slot*(i+0.5);
+      var gl=svg.querySelector('.guide');
+      if(gl){gl.setAttribute('x1',gx.toFixed(1));gl.setAttribute('x2',gx.toFixed(1));gl.setAttribute('visibility','visible');}
+      var rows=meta.series.map(function(s){
+        var v=s.vals[i];
+        var txt;
+        if(!isN(v))txt='—';
+        else if(s.tipFmt)txt=s.tipFmt(Number(v));
+        else txt=num(Number(v),2);
+        if(meta.unit)txt=txt+meta.unit;
+        return '<div class="r"><i style="background:'+s.color+'"></i><span class="n">'+esc(s.name)+'</span><b>'+esc(txt)+'</b></div>';
+      }).join('');
+      var tip=ensureTip();
+      tip.innerHTML='<div class="h">'+esc(meta.cats[i])+'</div>'+rows;
+      tip.style.display='block';
+      var left=ev.clientX+16,top=ev.clientY+16;
+      if(left+200>window.innerWidth)left=ev.clientX-210;
+      if(top+140>window.innerHeight)top=ev.clientY-140;
+      tip.style.left=left+'px';tip.style.top=top+'px';
+    });
+    svg.addEventListener('mouseleave',hide);
+  });
+}
+/** 连板天梯趋势：逐日取「最高连板 / 次高连板 / 创业板最高连板」及对应个股 */
+function ladderTrend(days){
+  var top=[],sec=[],gem=[],labT=[],labS=[],labG=[],has=[];
+  var shortName=function(ns,limit){
+    var arr=ns.slice(0,Math.min(1,limit||1));
+    var s=arr.join(' ');
+    return s.length>5?s.slice(0,5)+'…':s;
+  };
+  days.forEach(function(x){
+    var ld=RV.days[x.date];
+    var by={},order=[];
+    if(ld&&ld.stocks&&Array.isArray(ld.stocks.ladder)){
+      ld.stocks.ladder.forEach(function(g){
+        var st=Number(g.streak)||1;
+        if(!by[st]){by[st]=[];order.push(st);}
+        (g.items||[]).forEach(function(it){by[st].push({name:it.name,code:it.code});});
+      });
+    }
+    order.sort(function(a,b){return b-a;});
+    var t1=order.length?order[0]:null;
+    var t2=order.length>1?order[1]:null;
+    var gemCodes=[];
+    order.forEach(function(st){by[st].forEach(function(it){if(/^30/.test(String(it.code)))gemCodes.push(st);});});
+    var g=gemCodes.length?Math.max.apply(null,gemCodes):null;
+    top.push(t1);sec.push(t2);gem.push(g);
+    if(t1!=null||t2!=null||g!=null)has.push(x.date);
+    labT.push(t1==null?'':(shortName(by[t1].map(function(o){return o.name;}),2)+t1));
+    labS.push(t2==null?'':(shortName(by[t2].map(function(o){return o.name;}),2)+t2));
+    var gName='';
+    if(g!=null){
+      var cand=by[g].filter(function(o){return /^30/.test(String(o.code));});
+      if(cand.length)gName=shortName([cand[0].name],1);
+    }
+    labG.push(g==null?'':(gName+g));
+  });
+  var dedupe=function(a){
+    for(var i=1;i<a.length;i++){ if(a[i]&&a[i]===a[i-1]) a[i]=''; }
+    return a;
+  };
+  dedupe(labT);dedupe(labS);dedupe(labG);
+  return {top:top,sec:sec,gem:gem,labT:labT,labS:labS,labG:labG,hasN:has.length};
+}
 /* ── 多日竞价封单（参照截图版式：一天一块，块内 9:15 / 9:20 / 9:25 / 涨幅） ── */
 function aucSealCell(x,tm,sign){
   var s=aucSlot(x,tm);
@@ -2256,6 +2364,8 @@ function pathOf(vals,X,Y){
   return d;
 }
 /** 取一个「好看」的刻度步长（1/2/2.5/5/10 × 10^n），让 Y 轴刻度落在整数上 */
+/* 图表元数据：mkChart 每画一张图就往这里 push 一份，悬停提示靠 data-cid 反查 */
+var CH_META=[];
 function niceStep(raw){
   if(!(raw>0))return 1;
   var e=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),f=raw/e;
@@ -2289,7 +2399,9 @@ function mkChart(cats,series,opt){
   var Y=function(v){return pt+ih-(v-lo)/sp*ih;};
   var dp=opt.dp==null?0:opt.dp;
   var yf=opt.yfmt||function(v){return v.toFixed(dp);};
-  var o='<svg class="chart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" role="img">';
+  var cid=CH_META.length;
+  CH_META.push({cats:cats,series:series,geom:{w:w,h:h,pl:pl,pr:pr,pt:pt,pb:pb,n:n},unit:opt.unit||''});
+  var o='<svg class="chart" data-cid="'+cid+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" role="img">';
   for(var g=0;g<=ticks;g++){
     var gv=lo+sp*g/ticks,gy=Y(gv);
     o+='<line class="grid" x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+iw)+'" y2="'+gy.toFixed(1)+'"/>';
@@ -2318,6 +2430,12 @@ function mkChart(cats,series,opt){
       if(!isN(v))return;
       o+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(Number(v)).toFixed(1)+'" r="1.9" fill="'+s.color+'">'
         +'<title>'+esc(cats[i]+' '+s.name+' '+v)+'</title></circle>';
+      var lstep=Math.ceil(n/12)||1;
+      if(s.label&&n<=24&&(i%lstep===0||i===n-1)){
+        var lb=s.label(i,Number(v));
+        if(lb)o+='<text class="plbl" x="'+X(i).toFixed(1)+'" y="'+(Y(Number(v))-7).toFixed(1)
+          +'" text-anchor="middle" fill="'+s.color+'">'+esc(lb)+'</text>';
+      }
     });
   });
   o+='<line class="ax" x1="'+pl+'" y1="'+(pt+ih)+'" x2="'+(pl+iw)+'" y2="'+(pt+ih)+'"/>';
@@ -2327,6 +2445,7 @@ function mkChart(cats,series,opt){
     o+='<text x="'+X(i).toFixed(1)+'" y="'+(h-8)+'" text-anchor="middle">'+esc(c)+'</text>';
   });
   if(opt.tip)o+='<text class="ttl" x="'+(pl+iw)+'" y="'+(pt-3)+'" text-anchor="end">'+esc(opt.tip)+'</text>';
+  o+='<line class="guide" x1="0" y1="'+pt+'" x2="0" y2="'+(pt+ih)+'" visibility="hidden"/>';
   return o+'</svg>';
 }
 /** 区间涨跌幅：把窗口内各日 pct 连乘 */
@@ -2341,11 +2460,13 @@ function cumSeries(days,key){
 }
 
 function renderTrend(d){
+  CH_META.length=0;
   var h=RV.history,html='';
   if(!h||!h.days||h.days.length<2){
     html+='<div class="card"><h3>多日大盘趋势</h3><div class="empty">还没有多日历史数据。<br>'
       +'运行 <code>node tools/fetch-history.cjs --days 40</code> 生成 <code>data/history.js</code> 后刷新本页。</div></div>';
-    $('#p-trend').innerHTML=html;return;
+    $('#p-trend').innerHTML=html;
+  bindCharts($('#p-trend'));return;
   }
   var total=h.days.length;
   var win=Number(RV.ui.trendWin||20);
@@ -2407,30 +2528,53 @@ function renderTrend(d){
   // ── ① 指数累计涨跌幅
   html+='<div class="card"><h3>指数累计涨跌幅 <span class="hint">以 '+esc(days[0].date)+' 收盘为 0%</span></h3>'
     +legendOf(sIdx.map(function(s,i){return {name:s.name+' '+(lastPct[i]>=0?'+':'')+lastPct[i].toFixed(2)+'%',color:s.color};}))
-    +mkChart(cats,sIdx,{h:230,dp:1,yfmt:function(v){return v.toFixed(1)+'%';}})
+    +mkChart(cats,sIdx,{h:230,dp:1,unit:'%',yfmt:function(v){return v.toFixed(1)+'%';}})
     +'</div>';
 
   // ── ② 两市成交额 + 5 日均线
   html+='<div class="card"><h3>两市成交额与 5 日均线 <span class="hint">单位：亿元</span></h3>'
     +legendOf(sAmt.map(function(s){return {name:s.name,color:s.color};}))
-    +mkChart(cats,sAmt,{h:210,yfmt:function(v){return Math.round(v/1000)+'k';}})
+    +mkChart(cats,sAmt,{h:210,unit:' 亿',yfmt:function(v){return Math.round(v/1000)+'k';}})
     +'</div>';
 
   // ── ③ 涨跌家数
   html+='<div class="card"><h3>涨跌家数 <span class="hint">红柱向上=上涨家数，绿柱向下=下跌家数</span></h3>'
     +legendOf(sBr.map(function(s){return {name:s.name,color:s.color};}))
-    +mkChart(cats,sBr,{h:210,yfmt:function(v){return String(Math.abs(Math.round(v)));}})
+    +mkChart(cats,sBr,{h:210,unit:' 家',yfmt:function(v){return String(Math.abs(Math.round(v)));}})
     +'</div>';
 
-  // ── ④ 情绪温度（需要逐日本地数据）
+  // ── ④ 连板天梯趋势（需要逐日本地数据）
+  var lad=ladderTrend(days);
+  html+='<div class="card"><h3>连板天梯趋势 <span class="hint">红线=最高连板 · 橙线=次高连板 · 蓝线=创业板最高连板 · 点旁为该档位个股</span></h3>';
+  if(lad.hasN<2){
+    html+='<div class="empty">本地只有 '+(lad.hasN||0)+' 天带涨停梯队数据（<code>data/&lt;date&gt;.json</code>），不足以画连板趋势。<br>'
+      +'每晚 19:00 的自动取数会逐日累积；也可以手工跑 <code>node tools/fetch.cjs --date YYYY-MM-DD</code> 补历史。</div>';
+  }else{
+    var sLad=[
+      {name:'连板高度',color:'#f2464a',type:'line',vals:lad.top,w:2,
+        label:function(i){return lad.labT[i];},tipFmt:function(v){return num(v,0)+' 板';}},
+      {name:'次高高度',color:'#e8a33d',type:'line',vals:lad.sec,w:2,
+        label:function(i){return lad.labS[i];},tipFmt:function(v){return num(v,0)+' 板';}},
+      {name:'创业板高度',color:'#4c8dff',type:'line',vals:lad.gem,w:2,
+        label:function(i){return lad.labG[i];},tipFmt:function(v){return num(v,0)+' 板';}}
+    ];
+    html+=legendOf(sLad.map(function(s){return {name:s.name,color:s.color};}))
+      +mkChart(cats,sLad,{h:250,dp:0,zero:true,pt:30,yfmt:function(v){return String(Math.round(v));}})
+      +'<div style="margin-top:8px;font-size:10.5px;color:var(--dim2)">'
+      +'连板高度 = 当日最高连板数；次高高度 = 第二档连板数；创业板高度 = 创业板（300/301 开头）个股的最高连板数。'
+      +'把鼠标移到图上可看当天三条线的具体数值与档位个股。</div>';
+  }
+  html+='</div>';
+
+  // ── ⑤ 情绪温度（需要逐日本地数据）
   html+='<div class="card"><h3>情绪温度 <span class="hint">涨停家数（柱）+ 情绪分（线）· 本地有效 '+locN+'/'+win+' 日</span></h3>';
   if(locN<2){
     html+='<div class="empty">本地只有 '+(locN||0)+' 天带涨停/情绪数据（<code>data/&lt;date&gt;.json</code>），'
       +'不足以画趋势。<br>每晚 19:00 的自动取数会逐日累积；也可以手工跑 <code>node tools/fetch.cjs --date YYYY-MM-DD</code> 补历史。</div>';
   }else{
     var sSen=[
-      {name:'涨停家数',color:'#f2464a',type:'bar',vals:sLu,op:0.7},
-      {name:'情绪分',color:'#e8a33d',type:'line',vals:sLc}
+      {name:'涨停家数',color:'#f2464a',type:'bar',vals:sLu,op:0.7,tipFmt:function(v){return num(v,0)+' 家';}},
+      {name:'情绪分',color:'#e8a33d',type:'line',vals:sLc,tipFmt:function(v){return num(v,0)+' 分';}}
     ];
     html+=legendOf(sSen.map(function(s){return {name:s.name,color:s.color};}))
       +mkChart(cats,sSen,{h:210,dp:0});
@@ -2466,6 +2610,7 @@ function renderTrend(d){
     +'涨停家数与情绪分取自 <code>data/&lt;date&gt;.json</code>，未取过数的日子显示 <span class="dimv">—</span>。</div></div>';
 
   $('#p-trend').innerHTML=html;
+  bindCharts($('#p-trend'));
   $$('#p-trend [data-win]').forEach(function(b){
     b.addEventListener('click',function(){
       RV.ui.trendWin=Number(b.dataset.win);saveUI();renderTrend(cur());
