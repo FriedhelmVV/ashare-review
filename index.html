@@ -138,6 +138,10 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue)}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
 .kpi .k{font-size:10.5px;color:var(--dim);display:flex;align-items:center;gap:4px}
 .kpi .v{font-size:19px;font-weight:650;line-height:1.25;font-family:var(--mono)}
+/* 零值标注：把「0」和「—」区分开（0 = 真的没有，— = 没取到） */
+.kpi .ztag{display:inline-block;margin-left:7px;padding:1px 7px;border-radius:999px;font-style:normal;
+  font-size:10px;font-weight:500;letter-spacing:.02em;vertical-align:middle;
+  color:var(--dim);background:var(--panel3);border:1px solid var(--line2)}
 .kpi .d{font-size:10.5px;color:var(--dim2)}
 
 /* ── Tabs ───────────────────────────────── */
@@ -1299,8 +1303,8 @@ function renderKpis(d,s){
   var b=d.index.breadth,sen=d.sentiment;
   var ratio=isN(b.up)&&isN(b.down)&&(b.up+b.down)>0?(b.up/(b.up+b.down)*100):null;
   var cells=[
-    {k:'涨停家数',v:sen.limitUpCount==null?'—':sen.limitUpCount,d:sen.prevLimitUpCount!=null?('前一日 '+sen.prevLimitUpCount+' 家'):'含首板',c:'up'},
-    {k:'跌停家数',v:sen.limitDownCount==null?'—':sen.limitDownCount,d:'亏钱效应',c:'down'},
+    {k:'涨停家数',v:sen.limitUpCount==null?'—':sen.limitUpCount,d:sen.prevLimitUpCount!=null?('前一日 '+sen.prevLimitUpCount+' 家'):'含首板',c:'up',z:(sen.limitUpCount===0?'全天无涨停':'')},
+    {k:'跌停家数',v:sen.limitDownCount==null?'—':sen.limitDownCount,d:(sen.limitDownCount===0?'亏钱效应为 0':'亏钱效应'),c:'down',z:(sen.limitDownCount===0?'全天无跌停':'')},
     {k:'最高连板',v:sen.maxStreak==null?'—':sen.maxStreak+' 板',d:'空间高度',c:sen.maxStreak>=5?'up':'flat'},
     {k:'炸板率',v:sen.brokenRate==null?'—':(Number(sen.brokenRate)*100).toFixed(1)+'%',d:sen.brokenCount!=null?('炸板 '+sen.brokenCount+' 家'):'封板质量',c:sen.brokenRate!=null&&sen.brokenRate>0.3?'down':'up'},
     {k:'涨跌家数',v:isN(b.up)&&isN(b.down)?(b.up+'/'+b.down):'—',d:ratio==null?'赚钱效应':'上涨占比 '+ratio.toFixed(1)+'%',c:ratio!=null&&ratio>=50?'up':'down'},
@@ -1310,7 +1314,7 @@ function renderKpis(d,s){
   ];
   $('#kpis').innerHTML=cells.map(function(c){
     return '<div class="kpi"><div class="k">'+c.k+'</div>'
-      +'<div class="v '+(c.c||'')+'">'+esc(c.v)+'</div>'
+      +'<div class="v '+(c.c||'')+'">'+esc(c.v)+(c.z?('<i class="ztag">'+esc(c.z)+'</i>'):'')+'</div>'
       +'<div class="d">'+esc(c.d)+'</div></div>';
   }).join('');
 }
